@@ -82,4 +82,34 @@ public class ControlSequenceIntroducerTest extends TerminalTestCase {
         assertEnteringStringGivesResponse("\033[16t", "\033[6;" + cellHeight + ";" + cellWidth + "t");
     }
 
+    public void testSetUnderline() {
+        // See https://sw.kovidgoyal.net/kitty/underlines/
+        String[] inputs = new String[]{
+            "4",   // straight underline (for backwards compat)
+            "4:0", // no underline
+            "4:1", // straight underline
+            "4:2", // double underline
+            "4:3", // curly underline
+            "4:4", // dotted underline
+            "4:5", // dashed underline
+            "24"   // no underline (for backwards compat)
+        };
+        int[] expectedStyles = new int[]{
+            TextStyle.setUnderlineStyle(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, TextStyle.UNDERLINE_STRAIGHT),
+            0,
+            TextStyle.setUnderlineStyle(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, TextStyle.UNDERLINE_STRAIGHT),
+            TextStyle.setUnderlineStyle(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, TextStyle.UNDERLINE_DOUBLE),
+            TextStyle.setUnderlineStyle(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, TextStyle.UNDERLINE_CURLY),
+            TextStyle.setUnderlineStyle(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, TextStyle.UNDERLINE_DOTTED),
+            TextStyle.setUnderlineStyle(TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE, TextStyle.UNDERLINE_DASHED),
+            0,
+        };
+        for (int i = 0; i  < inputs.length; i++) {
+            withTerminalSized(3, 2).enterString("\033[1;" + inputs[i] + ";" + inputs[i] + "mA\033[0mB")
+                .assertLinesAre("AB ", "   ")
+                .assertEffectAttributesSet(effectLine(expectedStyles[i], 0, 0), effectLine(0, 0, 0))
+                .assertEffectAttributesSet(effectLine(TextStyle.CHARACTER_ATTRIBUTE_BOLD, 0, 0), effectLine(0, 0, 0));
+        }
+    }
+
 }

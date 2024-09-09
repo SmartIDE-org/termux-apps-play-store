@@ -292,6 +292,25 @@ public abstract class TerminalTestCase extends TestCase {
 	}
 
 	private static String describeStyle(int styleBits) {
+        int underlineStyleBits = TextStyle.decodeUnderline(styleBits);
+        String underlineStyle = Integer.toHexString(underlineStyleBits);
+        switch (underlineStyleBits) {
+            case TextStyle.UNDERLINE_STRAIGHT:
+                underlineStyle = "STRAIGHT";
+                break;
+            case TextStyle.UNDERLINE_DOUBLE:
+                underlineStyle = "DOUBLE";
+                break;
+            case TextStyle.UNDERLINE_CURLY:
+                underlineStyle = "CURLY";
+                break;
+            case TextStyle.UNDERLINE_DOTTED:
+                underlineStyle = "DOTTED";
+                break;
+            case TextStyle.UNDERLINE_DASHED:
+                underlineStyle = "DASHED";
+                break;
+        }
 		return "'" + ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_BLINK) != 0 ? ":BLINK:" : "")
 				+ ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_BOLD) != 0 ? ":BOLD:" : "")
 				+ ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_INVERSE) != 0 ? ":INVERSE:" : "")
@@ -299,7 +318,7 @@ public abstract class TerminalTestCase extends TestCase {
 				+ ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_ITALIC) != 0 ? ":ITALIC:" : "")
 				+ ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_PROTECTED) != 0 ? ":PROTECTED:" : "")
 				+ ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_STRIKETHROUGH) != 0 ? ":STRIKETHROUGH:" : "")
-				+ ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE) != 0 ? ":UNDERLINE:" : "") + "'";
+				+ ((styleBits & TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE) != 0 ? (":UNDERLINE(" + underlineStyle + "):") : "") + "'";
 	}
 
 	public void assertForegroundColorAt(int externalRow, int column, int color) {

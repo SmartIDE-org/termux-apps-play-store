@@ -8,19 +8,26 @@ package com.termux.terminal;
  * <p>
  * The bit layout is:
  * </p>
- * - 16 flags (11 currently used).
+ * - 3 bits for underline style (one of the UNDERLINE_* constants).
+ * - 13 bit flags (11 currently used).
  * - 24 for foreground color (only 9 first bits if a color index).
  * - 24 for background color (only 9 first bits if a color index).
  */
 public final class TextStyle {
 
-    public final static int CHARACTER_ATTRIBUTE_BOLD = 1;
-    public final static int CHARACTER_ATTRIBUTE_ITALIC = 1 << 1;
-    public final static int CHARACTER_ATTRIBUTE_UNDERLINE = 1 << 2;
-    public final static int CHARACTER_ATTRIBUTE_BLINK = 1 << 3;
-    public final static int CHARACTER_ATTRIBUTE_INVERSE = 1 << 4;
-    public final static int CHARACTER_ATTRIBUTE_INVISIBLE = 1 << 5;
-    public final static int CHARACTER_ATTRIBUTE_STRIKETHROUGH = 1 << 6;
+    public final static int UNDERLINE_STRAIGHT = 0;
+    public final static int UNDERLINE_DOUBLE = 1;
+    public final static int UNDERLINE_CURLY = 2;
+    public final static int UNDERLINE_DOTTED = 3;
+    public final static int UNDERLINE_DASHED = 4;
+
+    public final static int CHARACTER_ATTRIBUTE_BOLD = 1 << 3;
+    public final static int CHARACTER_ATTRIBUTE_ITALIC = 1 << 4;
+    public final static int CHARACTER_ATTRIBUTE_UNDERLINE = 1 << 5;
+    public final static int CHARACTER_ATTRIBUTE_BLINK = 1 << 6;
+    public final static int CHARACTER_ATTRIBUTE_INVERSE = 1 << 7;
+    public final static int CHARACTER_ATTRIBUTE_INVISIBLE = 1 << 8;
+    public final static int CHARACTER_ATTRIBUTE_STRIKETHROUGH = 1 << 9;
     /**
      * The selective erase control functions (DECSED and DECSEL) can only erase characters defined as erasable.
      * <p>
@@ -28,13 +35,13 @@ public final class TextStyle {
      * come after it as erasable from the screen.
      * </p>
      */
-    public final static int CHARACTER_ATTRIBUTE_PROTECTED = 1 << 7;
+    public final static int CHARACTER_ATTRIBUTE_PROTECTED = 1 << 10;
     /** Dim colors. Also known as faint or half intensity. */
-    public final static int CHARACTER_ATTRIBUTE_DIM = 1 << 8;
+    public final static int CHARACTER_ATTRIBUTE_DIM = 1 << 11;
     /** If true (24-bit) color is used for the cell for foreground. */
-    private final static int CHARACTER_ATTRIBUTE_TRUECOLOR_FOREGROUND = 1 << 9;
+    private final static int CHARACTER_ATTRIBUTE_TRUECOLOR_FOREGROUND = 1 << 12;
     /** If true (24-bit) color is used for the cell for foreground. */
-    private final static int CHARACTER_ATTRIBUTE_TRUECOLOR_BACKGROUND= 1 << 10;
+    private final static int CHARACTER_ATTRIBUTE_TRUECOLOR_BACKGROUND= 1 << 13;
 
     public final static int COLOR_INDEX_FOREGROUND = 256;
     public final static int COLOR_INDEX_BACKGROUND = 257;
@@ -47,7 +54,7 @@ public final class TextStyle {
     final static long NORMAL = encode(COLOR_INDEX_FOREGROUND, COLOR_INDEX_BACKGROUND, 0);
 
     static long encode(int foreColor, int backColor, int effect) {
-        long result = effect & 0b111111111;
+        long result = effect & 0b11111111_11111111;
         if ((0xff000000 & foreColor) == 0xff000000) {
             // 24-bit color.
             result |= CHARACTER_ATTRIBUTE_TRUECOLOR_FOREGROUND | ((foreColor & 0x00ffffffL) << 40L);
@@ -84,7 +91,15 @@ public final class TextStyle {
     }
 
     public static int decodeEffect(long style) {
-        return (int) (style & 0b11111111111);
+        return (int) (style & 0b11111111_11111111);
+    }
+
+    public static int decodeUnderline(long style) {
+        return (int) (style & 0b111);
+    }
+
+    public static int setUnderlineStyle(int style, int underlineStyle) {
+        return (style & ~0b111) | underlineStyle;
     }
 
 }

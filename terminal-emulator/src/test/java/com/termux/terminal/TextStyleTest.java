@@ -62,4 +62,11 @@ public class TextStyleTest extends TestCase {
 		assertTrue((TextStyle.decodeEffect(encoded) & TextStyle.CHARACTER_ATTRIBUTE_PROTECTED) != 0);
 	}
 
+    public void testUnderlineStyle() {
+        for (int underlineStyle : new int[]{TextStyle.UNDERLINE_STRAIGHT, TextStyle.UNDERLINE_DOUBLE, TextStyle.UNDERLINE_CURLY, TextStyle.UNDERLINE_DOTTED, TextStyle.UNDERLINE_DASHED}) {
+            long styleBits = TextStyle.setUnderlineStyle(~0, underlineStyle);
+            assertEquals(underlineStyle, TextStyle.decodeUnderline(styleBits));
+        }
+    }
+
 }

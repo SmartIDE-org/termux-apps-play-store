@@ -160,11 +160,14 @@ public class OperatingSystemControlTest extends TerminalTestCase {
 		enterString("\033]12;#00ABCD\007").assertColor(TextStyle.COLOR_INDEX_CURSOR, 0xFF00ABCD);
 		// Two special colors at once
 		// ("Each successive parameter changes the next color in the list. The value of P s tells the starting point in the list"):
-		enterString("\033]10;#FF0000;#00FF00\007").assertColor(TextStyle.COLOR_INDEX_FOREGROUND, 0xFFFF0000);
-		assertColor(TextStyle.COLOR_INDEX_BACKGROUND, 0xFF00FF00);
+		enterString("\033]10;#FF0000;#00FF00\007")
+            .assertColor(TextStyle.COLOR_INDEX_FOREGROUND, 0xFFFF0000)
+            .assertColor(TextStyle.COLOR_INDEX_BACKGROUND, 0xFF00FF00);
 		// Three at once:
-		enterString("\033]10;#0000FF;#00FF00;#FF0000\007").assertColor(TextStyle.COLOR_INDEX_FOREGROUND, 0xFF0000FF);
-		assertColor(TextStyle.COLOR_INDEX_BACKGROUND, 0xFF00FF00).assertColor(TextStyle.COLOR_INDEX_CURSOR, 0xFFFF0000);
+		enterString("\033]10;#0000FF;#00FF00;#FF0000\007")
+            .assertColor(TextStyle.COLOR_INDEX_FOREGROUND, 0xFF0000FF)
+            .assertColor(TextStyle.COLOR_INDEX_BACKGROUND, 0xFF00FF00)
+            .assertColor(TextStyle.COLOR_INDEX_CURSOR, 0xFFFF0000);
 
 		// Without ending semicolon:
 		enterString("\033]10;#FF0000\007").assertColor(TextStyle.COLOR_INDEX_FOREGROUND, 0xFFFF0000);

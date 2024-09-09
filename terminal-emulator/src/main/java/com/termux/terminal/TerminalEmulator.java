@@ -130,9 +130,9 @@ public final class TerminalEmulator {
     private static final int ESC_APC = 20;
 
     /**
-     * The number of parameter arguments. This name comes from the ANSI standard for terminal escape codes.
+     * The number of parameter (including colon separated sub-parameter) arguments.
      */
-    private static final int MAX_ESCAPE_PARAMETERS = 16;
+    private static final int MAX_ESCAPE_PARAMETERS = 32;
 
     /**
      * Needs to be large enough to contain reasonable OSC 52 pastes.
@@ -272,6 +272,10 @@ public final class TerminalEmulator {
      * Holds the arguments of the current escape sequence.
      */
     private final int[] mArgs = new int[MAX_ESCAPE_PARAMETERS];
+    /**
+     * Holds the bit flags which arguments are subparams.
+     */
+    private int mArgsSubParams = 0;
 
     /**
      * Holds OSC and device control arguments, which can be strings.
@@ -328,12 +332,14 @@ public final class TerminalEmulator {
     private boolean mAboutToAutoWrap;
 
     /**
-     * Current foreground and background colors. Can either be a color index in [0,259] or a truecolor (24-bit) value.
+     * Current foreground, background and underline colors. Can either be a color index in [0,259] or a truecolor (24-bit) value.
      * For a 24-bit value the top byte (0xff000000) is set.
+     * <p>
+     * Note that the underline color is not yet used.
      *
      * @see TextStyle
      */
-    int mForeColor, mBackColor;
+    int mForeColor, mBackColor, mUnderlineColor;
 
     /**
      * Current {@link TextStyle} effect.
@@ -1390,6 +1396,7 @@ public final class TerminalEmulator {
         mEscapeState = ESC;
         mArgIndex = 0;
         Arrays.fill(mArgs, -1);
+        mArgsSubParams = 0;
     }
 
     private void doLinefeed() {
@@ -1896,6 +1903,7 @@ public final class TerminalEmulator {
             if (code == 0) { // reset
                 mForeColor = TextStyle.COLOR_INDEX_FOREGROUND;
                 mBackColor = TextStyle.COLOR_INDEX_BACKGROUND;
+                mUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
                 mEffect = 0;
             } else if (code == 1) {
                 mEffect |= TextStyle.CHARACTER_ATTRIBUTE_BOLD;
@@ -1904,7 +1912,36 @@ public final class TerminalEmulator {
             } else if (code == 3) {
                 mEffect |= TextStyle.CHARACTER_ATTRIBUTE_ITALIC;
             } else if (code == 4) {
-                mEffect |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                if (i + 1 <= mArgIndex && ((mArgsSubParams & (1 << (i+1))) > 0)) {
+                    // Sub parameter, see https://sw.kovidgoyal.net/kitty/underlines/
+                    i++;
+                    if (mArgs[i] == 0) {// No underline
+                        mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                        mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_STRAIGHT);
+                    } else { // Different variations of underlines.
+                        mEffect |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                        switch (mArgs[i]) {
+                            case 1:
+                                mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_STRAIGHT);
+                                break;
+                            case 2:
+                                mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_DOUBLE);
+                                break;
+                            case 3:
+                                mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_CURLY);
+                                break;
+                            case 4:
+                                mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_DOTTED);
+                                break;
+                            case 5:
+                                mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_DASHED);
+                                break;
+                        }
+                    }
+                } else {
+                    mEffect |= TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                    mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_STRAIGHT);
+                }
             } else if (code == 5) {
                 mEffect |= TextStyle.CHARACTER_ATTRIBUTE_BLINK;
             } else if (code == 7) {
@@ -1923,6 +1960,7 @@ public final class TerminalEmulator {
                 mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_ITALIC;
             } else if (code == 24) { // underline: none
                 mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE;
+                mEffect = TextStyle.setUnderlineStyle(mEffect, TextStyle.UNDERLINE_STRAIGHT);
             } else if (code == 25) { // blink: none
                 mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_BLINK;
             } else if (code == 27) { // image: positive
@@ -1933,8 +1971,8 @@ public final class TerminalEmulator {
                 mEffect &= ~TextStyle.CHARACTER_ATTRIBUTE_STRIKETHROUGH;
             } else if (code >= 30 && code <= 37) {
                 mForeColor = code - 30;
-            } else if (code == 38 || code == 48) {
-                // Extended set foreground(38)/background (48) color.
+            } else if (code == 38 || code == 48 || code == 58) {
+                // Extended set foreground(38)/background(48)/underline(58) color.
                 // This is followed by either "2;$R;$G;$B" to set a 24-bit color or
                 // "5;$INDEX" to set an indexed color.
                 if (i + 2 > mArgIndex) continue;
@@ -1949,11 +1987,11 @@ public final class TerminalEmulator {
                         if (red < 0 || green < 0 || blue < 0 || red > 255 || green > 255 || blue > 255) {
                             finishSequenceAndLogError("Invalid RGB: " + red + "," + green + "," + blue);
                         } else {
-                            int argbColor = 0xff000000 | (red << 16) | (green << 8) | blue;
-                            if (code == 38) {
-                                mForeColor = argbColor;
-                            } else {
-                                mBackColor = argbColor;
+                            int argbColor = 0xff_00_00_00 | (red << 16) | (green << 8) | blue;
+                            switch (code) {
+                                case 38: mForeColor = argbColor; break;
+                                case 48: mBackColor = argbColor; break;
+                                default: mUnderlineColor = argbColor; break;
                             }
                         }
                         i += 4; // "2;P_r;P_g;P_r"
@@ -1962,10 +2000,10 @@ public final class TerminalEmulator {
                     int color = getArg(i + 2, 0, false);
                     i += 2; // "5;P_s"
                     if (color >= 0 && color < TextStyle.NUM_INDEXED_COLORS) {
-                        if (code == 38) {
-                            mForeColor = color;
-                        } else {
-                            mBackColor = color;
+                        switch (code) {
+                            case 38: mForeColor = color; break;
+                            case 48: mBackColor = color; break;
+                            default: mUnderlineColor = color; break;
                         }
                     } else {
                         if (LOG_ESCAPE_SEQUENCES) Log.w(LOG_TAG, "Invalid color index: " + color);
@@ -1979,6 +2017,8 @@ public final class TerminalEmulator {
                 mBackColor = code - 40;
             } else if (code == 49) { // Set default background color.
                 mBackColor = TextStyle.COLOR_INDEX_BACKGROUND;
+            } else if (code == 59) { // Set default underline color.
+                mUnderlineColor = TextStyle.COLOR_INDEX_FOREGROUND;
             } else if (code >= 90 && code <= 97) { // Bright foreground colors (aixterm codes).
                 mForeColor = code - 90 + 8;
             } else if (code >= 100 && code <= 107) { // Bright background color (aixterm codes).
@@ -2240,9 +2280,12 @@ public final class TerminalEmulator {
                 mArgs[mArgIndex] = value;
             }
             continueSequence(mEscapeState);
-        } else if (b == ';') {
-            if (mArgIndex < mArgs.length) {
+        } else if (b == ';' || b == ':') {
+            if (mArgIndex + 1 < mArgs.length) {
                 mArgIndex++;
+                if (b == ':') {
+                    mArgsSubParams |= 1 << mArgIndex;
+                }
             }
             continueSequence(mEscapeState);
         } else {
